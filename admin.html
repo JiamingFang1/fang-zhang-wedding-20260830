@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>婚礼回执管理</title>
+  <style>
+    :root {
+      --bg: #0b1720;
+      --card: #12232f;
+      --line: #223845;
+      --text: #e8eef2;
+      --muted: #8aa0ad;
+      --gold: #d4af6a;
+      --green: #67c587;
+      --red: #e06c6c;
+      --blue: #6fa8dc;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+      min-height: 100vh;
+    }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 24px 16px 64px; }
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 0 20px; border-bottom: 1px solid var(--line); margin-bottom: 20px;
+    }
+    h1 { font-size: 20px; font-weight: 600; letter-spacing: 1px; }
+    h1 small { display: block; font-size: 12px; color: var(--muted); font-weight: 400; margin-top: 4px; }
+    button {
+      background: var(--gold); color: #1a1206; border: 0; border-radius: 6px;
+      padding: 8px 16px; font-size: 14px; cursor: pointer; font-weight: 600;
+    }
+    button.secondary { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+    button.danger { background: transparent; color: var(--red); border: 1px solid var(--line); }
+    button.small { padding: 4px 10px; font-size: 12px; border-radius: 5px; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 24px; }
+    .stat { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+    .stat b { display: block; font-size: 26px; margin-top: 6px; color: var(--gold); }
+    .stat span { font-size: 13px; color: var(--muted); }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { color: var(--muted); font-weight: 500; font-size: 12px; white-space: nowrap; }
+    tr:last-child td { border-bottom: 0; }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 12px; }
+    .pill.yes { background: rgba(103,197,135,.15); color: var(--green); }
+    .pill.no { background: rgba(224,108,108,.15); color: var(--red); }
+    .pill.on { background: rgba(111,168,220,.15); color: var(--blue); }
+    .pill.off { background: rgba(138,160,173,.15); color: var(--muted); }
+    .msg { color: var(--text); max-width: 260px; word-break: break-word; }
+    .empty { text-align: center; color: var(--muted); padding: 40px 16px; }
+    /* 登录 */
+    .login-box { max-width: 360px; margin: 12vh auto 0; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 32px 28px; }
+    .login-box h2 { font-size: 18px; margin-bottom: 20px; text-align: center; }
+    .login-box input {
+      width: 100%; background: var(--bg); border: 1px solid var(--line); color: var(--text);
+      padding: 12px; border-radius: 8px; font-size: 15px; margin-bottom: 14px; outline: none;
+    }
+    .login-box input:focus { border-color: var(--gold); }
+    .login-box button { width: 100%; padding: 12px; font-size: 15px; }
+    .login-err { color: var(--red); font-size: 13px; text-align: center; min-height: 18px; margin-bottom: 8px; }
+    .hidden { display: none !important; }
+    .toast {
+      position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
+      background: #1c3341; border: 1px solid var(--line); color: var(--text);
+      padding: 10px 20px; border-radius: 8px; font-size: 14px; opacity: 0;
+      transition: opacity .25s; pointer-events: none; z-index: 99;
+    }
+    .toast.show { opacity: 1; }
+    .actions { white-space: nowrap; }
+    .actions button { margin-right: 6px; }
+    .actions button:last-child { margin-right: 0; }
+  </style>
+</head>
+<body>
+  <div class="wrap" id="app">
+    <header>
+      <h1>婚礼回执管理<small>房家鸣 × 张甜甜 · 2026.08.30</small></h1>
+      <button class="secondary hidden" id="logout-btn">退出登录</button>
+    </header>
+
+    <div id="login-view">
+      <div class="login-box">
+        <h2>管理登录</h2>
+        <input type="password" id="password-input" placeholder="请输入管理密码" autocomplete="current-password">
+        <p class="login-err" id="login-err"></p>
+        <button id="login-btn">登 录</button>
+      </div>
+    </div>
+
+    <div id="admin-view" class="hidden">
+      <div class="stats">
+        <div class="stat"><span>回执总数</span><b id="stat-total">-</b></div>
+        <div class="stat"><span>确认赴宴(人次)</span><b id="stat-attending">-</b></div>
+        <div class="stat"><span>赴宴合计人数</span><b id="stat-partysize">-</b></div>
+        <div class="stat"><span>含留言的回执</span><b id="stat-messages">-</b></div>
+      </div>
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>时间</th><th>姓名</th><th>赴宴</th><th>人数</th><th>留言</th><th>状态</th><th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="rsvp-rows"></tbody>
+        </table>
+        <div class="empty hidden" id="empty-tip">暂无回执数据</div>
+      </div>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  const API = "https://fangjm007-d6g2haxg47e345568-1461851777.ap-shanghai.app.tcloudbase.com/api";
+  const loginView = document.getElementById('login-view');
+  const adminView = document.getElementById('admin-view');
+  const logoutBtn = document.getElementById('logout-btn');
+  const passwordInput = document.getElementById('password-input');
+  const loginBtn = document.getElementById('login-btn');
+  const loginErr = document.getElementById('login-err');
+  const toast = document.getElementById('toast');
+
+  const fmtTime = (value) => {
+    if (!value) return '-';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return String(value);
+    const pad = (n) => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  };
+  const esc = (text) => String(text == null ? '' : text)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+  let token = sessionStorage.getItem('adminToken') || '';
+
+  function showToast(text) {
+    toast.textContent = text;
+    toast.classList.add('show');
+    clearTimeout(showToast._timer);
+    showToast._timer = setTimeout(() => toast.classList.remove('show'), 2200);
+  }
+
+  async function api(path, options = {}) {
+    const headers = { ...(options.headers || {}) };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    const response = await fetch(API + path, { ...options, headers });
+    let result = null;
+    try { result = await response.json(); } catch { /* ignore */ }
+    if (response.status === 401 && path !== '/admin/login') {
+      token = '';
+      sessionStorage.removeItem('adminToken');
+      showLogin();
+      throw new Error('登录已失效，请重新登录');
+    }
+    if (!response.ok || !result || result.ok !== true) {
+      throw new Error((result && result.message) || '请求失败');
+    }
+    return result;
+  }
+
+  function showLogin() {
+    loginView.classList.remove('hidden');
+    adminView.classList.add('hidden');
+    logoutBtn.classList.add('hidden');
+    passwordInput.focus();
+  }
+
+  function showAdmin() {
+    loginView.classList.add('hidden');
+    adminView.classList.remove('hidden');
+    logoutBtn.classList.remove('hidden');
+    loadData();
+  }
+
+  function renderStats(stats) {
+    document.getElementById('stat-total').textContent = stats.total;
+    document.getElementById('stat-attending').textContent = stats.attending;
+    document.getElementById('stat-partysize').textContent = stats.partySizeSum;
+    document.getElementById('stat-messages').textContent = stats.messages;
+  }
+
+  function renderRows(records) {
+    const tbody = document.getElementById('rsvp-rows');
+    const emptyTip = document.getElementById('empty-tip');
+    tbody.replaceChildren();
+    emptyTip.classList.toggle('hidden', records.length > 0);
+    for (const record of records) {
+      const tr = document.createElement('tr');
+      const onWall = record.reviewStatus === 'approved';
+      tr.innerHTML =
+        '<td>' + fmtTime(record.submittedAt) + '</td>' +
+        '<td>' + esc(record.name) + '</td>' +
+        '<td><span class="pill ' + (record.attendance === 'yes' ? 'yes' : 'no') + '">' +
+          (record.attendance === 'yes' ? '赴宴' : '不到场') + '</span></td>' +
+        '<td>' + (record.attendance === 'yes' ? (Number(record.partySize) || 1) : '-') + '</td>' +
+        '<td class="msg">' + (record.message ? esc(record.message) : '<span style="color:var(--muted)">-</span>') + '</td>' +
+        '<td><span class="pill ' + (onWall ? 'on' : 'off') + '">' + (onWall ? '已上墙' : '已隐藏') + '</span></td>' +
+        '<td class="actions">' +
+          (onWall
+            ? '<button class="small secondary" data-act="hide" data-id="' + record.id + '">隐藏</button>'
+            : '<button class="small" data-act="show" data-id="' + record.id + '">通过</button>') +
+          '<button class="small danger" data-act="del" data-id="' + record.id + '">删除</button>' +
+        '</td>';
+      tbody.append(tr);
+    }
+  }
+
+  async function loadData() {
+    try {
+      const result = await api('/admin/rsvps');
+      renderStats(result.stats);
+      renderRows(result.records);
+    } catch (error) {
+      showToast(error.message);
+    }
+  }
+
+  async function act(id, action) {
+    const name = action === 'del' ? '确定删除这条回执吗？删除后不可恢复' : null;
+    if (name && !window.confirm(name)) return;
+    try {
+      if (action === 'del') {
+        await api('/admin/rsvps', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+        showToast('已删除');
+      } else {
+        await api('/admin/rsvps', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, reviewStatus: action === 'show' ? 'approved' : 'pending' }) });
+        showToast(action === 'show' ? '已通过，留言上墙' : '已隐藏');
+      }
+      loadData();
+    } catch (error) {
+      showToast(error.message);
+    }
+  }
+
+  loginBtn.addEventListener('click', async () => {
+    const password = passwordInput.value;
+    loginErr.textContent = '';
+    if (!password) { loginErr.textContent = '请输入密码'; return; }
+    loginBtn.disabled = true;
+    loginBtn.textContent = '登录中…';
+    try {
+      const result = await api('/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      token = result.token;
+      sessionStorage.setItem('adminToken', token);
+      passwordInput.value = '';
+      showAdmin();
+    } catch (error) {
+      loginErr.textContent = error.message;
+    } finally {
+      loginBtn.disabled = false;
+      loginBtn.textContent = '登 录';
+    }
+  });
+  passwordInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') loginBtn.click();
+  });
+
+  logoutBtn.addEventListener('click', () => {
+    token = '';
+    sessionStorage.removeItem('adminToken');
+    showLogin();
+  });
+
+  document.getElementById('rsvp-rows').addEventListener('click', (event) => {
+    const btn = event.target.closest('button[data-act]');
+    if (!btn) return;
+    act(btn.dataset.id, btn.dataset.act);
+  });
+
+  if (token) {
+    showAdmin();
+  } else {
+    showLogin();
+  }
+})();
+</script>
+</body>
+</html>
