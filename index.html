@@ -92,11 +92,12 @@
       const dist = targetY - startY;
       if (!autoRunning || Math.abs(dist) < 1) { finish(); return; }
       const start = performance.now();
-      // 匀速滑动:线性插值,速度放慢(约 1.8 秒滑过一页,持续可见的流动感)
+      // 匀速滑动:线性插值,固定速度约 600px/s(各页高度不同,时长随距离变化,全程速度一致)
       const ease = (t) => t;
+      const duration = Math.max(700, Math.abs(dist) / 0.6);
       const frame = (now) => {
         if (!autoRunning) { finish(); return; }
-        const p = Math.min(1, (now - start) / 1800);
+        const p = Math.min(1, (now - start) / duration);
         window.scrollTo(0, startY + dist * ease(p));
         if (p < 1) { rafId = requestAnimationFrame(frame); } else { finish(); }
       };
