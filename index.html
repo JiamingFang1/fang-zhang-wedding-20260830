@@ -82,35 +82,45 @@
     document.addEventListener('touchstart', beginTour, { passive: true });
   }
 
-  // 自动下滑:从当前位置匀速连续滑到底部,全程无停顿,像手动慢慢下滑
+  // 自动下滑:更慢的匀速(175px/s)滑向每一页,每页停留 2 秒,最后停在最后一页
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const pages = Array.from(document.querySelectorAll('main > section, footer.closing'));
   let rafId = null;
+  let autoIndex = 1;
   let autoRunning = false;
   let tourStartedAt = 0;
   async function startAutoScroll() {
-    if (reduceMotion || autoRunning) return;
+    if (reduceMotion || autoRunning || pages.length < 2) return;
     autoRunning = true;
     tourStartedAt = Date.now();
     document.dispatchEvent(new CustomEvent('autoscroll:start'));
     const html = document.documentElement;
     const prevBehavior = html.style.scrollBehavior;
     html.style.scrollBehavior = 'auto';
-    const startY = window.scrollY;
-    const maxY = html.scrollHeight - window.innerHeight;
-    const dist = maxY - startY;
-    if (dist < 1) { html.style.scrollBehavior = prevBehavior; autoRunning = false; return; }
-    const speed = 350; // px/s,匀速慢速
-    const duration = (dist / speed) * 1000;
-    const t0 = performance.now();
-    await new Promise((resolve) => {
-      const frame = (now) => {
-        if (!autoRunning) { html.style.scrollBehavior = prevBehavior; resolve(); return; }
-        const p = Math.min(1, (now - t0) / duration);
-        window.scrollTo(0, startY + dist * p);
-        if (p < 1) { rafId = requestAnimationFrame(frame); } else { html.style.scrollBehavior = prevBehavior; resolve(); }
-      };
-      rafId = requestAnimationFrame(frame);
-    });
+    const speed = 175; // px/s,匀速慢速
+    while (autoRunning && autoIndex < pages.length) {
+      const targetY = pages[autoIndex].getBoundingClientRect().top + window.scrollY;
+      const startY = window.scrollY;
+      const dist = targetY - startY;
+      if (dist > 1) {
+        const duration = (dist / speed) * 1000;
+        const t0 = performance.now();
+        await new Promise((resolve) => {
+          const frame = (now) => {
+            if (!autoRunning) { html.style.scrollBehavior = prevBehavior; resolve(); return; }
+            const p = Math.min(1, (now - t0) / duration);
+            window.scrollTo(0, startY + dist * p);
+            if (p < 1) { rafId = requestAnimationFrame(frame); } else { resolve(); }
+          };
+          rafId = requestAnimationFrame(frame);
+        });
+      }
+      autoIndex += 1;
+      if (autoRunning && autoIndex < pages.length) {
+        await new Promise((r) => { rafId = setTimeout(r, 2000); });
+      }
+    }
+    html.style.scrollBehavior = prevBehavior;
     autoRunning = false;
   }
   const stopAutoScroll = () => {
