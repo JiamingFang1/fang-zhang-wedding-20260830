@@ -77,16 +77,20 @@
   let autoRunning = false;
   function animateScrollTo(targetY, duration) {
     return new Promise((resolve) => {
+      const html = document.documentElement;
+      const prevBehavior = html.style.scrollBehavior;
+      html.style.scrollBehavior = 'auto';
+      const finish = () => { html.style.scrollBehavior = prevBehavior; resolve(); };
       const startY = window.scrollY;
       const dist = targetY - startY;
-      if (!autoRunning || Math.abs(dist) < 1) { resolve(); return; }
+      if (!autoRunning || Math.abs(dist) < 1) { finish(); return; }
       const start = performance.now();
       const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
       const frame = (now) => {
-        if (!autoRunning) { resolve(); return; }
+        if (!autoRunning) { finish(); return; }
         const p = Math.min(1, (now - start) / duration);
         window.scrollTo(0, startY + dist * ease(p));
-        if (p < 1) { rafId = requestAnimationFrame(frame); } else { resolve(); }
+        if (p < 1) { rafId = requestAnimationFrame(frame); } else { finish(); }
       };
       rafId = requestAnimationFrame(frame);
     });
