@@ -56,8 +56,15 @@
     tryPlay();
     // 音频就绪后重试(慢网络下初次尝试可能因音频还没加载完成而失败)
     audio.addEventListener('canplay', () => { if (audio.paused) tryPlay(); });
-    // 微信旧版 WebView 桥接就绪时重试
-    document.addEventListener('WeixinJSBridgeReady', () => { if (audio.paused) tryPlay(); });
+    // 微信 WebView 桥接就绪时:调用桥接方法解锁音频自动播放(微信官方解锁手段)
+    document.addEventListener('WeixinJSBridgeReady', () => {
+      tryPlay();
+      if (window.WeixinJSBridge && typeof WeixinJSBridge.invoke === 'function') {
+        WeixinJSBridge.invoke('getNetworkType', {}, () => tryPlay());
+      }
+    });
+    // 定时重试:打开后 1 秒、3 秒再各尝试一次(覆盖音频缓冲慢的情况)
+    [1000, 3000].forEach((ms) => setTimeout(() => { if (audio.paused) tryPlay(); }, ms));
     // 自动下滑开始时再重试一次
     document.addEventListener('autoscroll:start', () => { if (audio.paused) tryPlay(); });
     const firstGesture = () => {
@@ -75,7 +82,7 @@
   let rafId = null;
   let autoIndex = 1;
   let autoRunning = false;
-  function animateScrollTo(targetY, duration) {
+  function animateScrollTo(targetY) {
     return new Promise((resolve) => {
       const html = document.documentElement;
       const prevBehavior = html.style.scrollBehavior;
@@ -85,10 +92,11 @@
       const dist = targetY - startY;
       if (!autoRunning || Math.abs(dist) < 1) { finish(); return; }
       const start = performance.now();
-      const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+      // 匀速滑动:线性插值,速度放慢(约 1.8 秒滑过一页,持续可见的流动感)
+      const ease = (t) => t;
       const frame = (now) => {
         if (!autoRunning) { finish(); return; }
-        const p = Math.min(1, (now - start) / duration);
+        const p = Math.min(1, (now - start) / 1800);
         window.scrollTo(0, startY + dist * ease(p));
         if (p < 1) { rafId = requestAnimationFrame(frame); } else { finish(); }
       };
@@ -101,7 +109,7 @@
     document.dispatchEvent(new CustomEvent('autoscroll:start'));
     while (autoRunning && autoIndex < pages.length) {
       const target = pages[autoIndex].getBoundingClientRect().top + window.scrollY;
-      await animateScrollTo(target, 1500);
+      await animateScrollTo(target);
       autoIndex += 1;
       if (autoRunning && autoIndex < pages.length) {
         await new Promise((r) => { rafId = setTimeout(r, 2000); });
