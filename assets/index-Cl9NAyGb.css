@@ -4,3 +4,5 @@
 .tap-hint{z-index:3;color:#fff;text-align:center;letter-spacing:.3em;font-size:12px;position:absolute;bottom:clamp(84px,12vh,140px);left:0;right:0;animation:tap-hint-pulse 1.8s ease-in-out infinite;pointer-events:none}
 .tap-hint::before{content:"▶";display:block;margin:0 auto 10px;font-size:10px;opacity:.85}
 @keyframes tap-hint-pulse{0%,100%{opacity:.45}50%{opacity:1}}
+/* 末页回执提醒(原QQ音乐链接改为文字提示,去下划线) */
+.song-link{border-bottom:0;color:#ffffffb8}
